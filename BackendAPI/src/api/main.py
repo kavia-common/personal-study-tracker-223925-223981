@@ -451,9 +451,11 @@ def leaderboard(
     - last_30_days: top users by total minutes in the last 30 days
     """
     # All time
+    # Use INNER JOIN so only users who have at least one study session are included.
+    # This ensures an empty database yields an empty leaderboard, matching test expectations.
     all_time_q = (
         select(User.id, User.email, func.coalesce(func.sum(StudySession.minutes), 0).label("total_minutes"))
-        .join(StudySession, StudySession.user_id == User.id, isouter=True)
+        .join(StudySession, StudySession.user_id == User.id)  # inner join
         .group_by(User.id)
         .order_by(desc(text("total_minutes")))
         .limit(top)

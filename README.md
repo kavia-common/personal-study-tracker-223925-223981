@@ -12,7 +12,7 @@ This repository contains the Backend API (FastAPI) for the Personal Study Tracke
 
 1) Create a `.env` from `.env.example` and fill values (do not commit secrets):
 ```
-cp .env.example .env
+cp BackendAPI/.env.example BackendAPI/.env
 ```
 
 Required keys (see BackendAPI/.env.example):
@@ -42,6 +42,10 @@ uvicorn src.api.main:app --host 0.0.0.0 --port 3001 --reload
 ```
 
 If `DATABASE_URL` and `BACKEND_DB_URL` are not set, a local SQLite `dev.db` will be used for quick start only (non-production).
+
+Migrations:
+- Alembic is not strictly required for this MVP because the application will auto-create missing tables on startup.
+- If you prefer migrations in your environment, initialize Alembic and generate migrations from the SQLAlchemy models in src/api/main.py.
 
 Healthcheck and DB connectivity:
 - GET `/` returns `{ message: "Healthy", db: "ok" }` when the API is up and the database connection succeeds, otherwise 503.

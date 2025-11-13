@@ -15,8 +15,9 @@ This repository contains the Backend API (FastAPI) for the Personal Study Tracke
 cp .env.example .env
 ```
 
-Required keys:
-- BACKEND_DB_URL (e.g., postgresql+psycopg2://user:password@host:5432/dbname)
+Required keys (see BackendAPI/.env.example):
+- DATABASE_URL (preferred) or BACKEND_DB_URL (fallback)
+  e.g., postgresql+psycopg2://user:password@host:5432/dbname
 - BACKEND_JWT_SECRET
 - BACKEND_JWT_EXPIRE_MINUTES (optional, default 120)
 - REACT_APP_FRONTEND_URL (for CORS, default http://localhost:3000)
@@ -31,7 +32,11 @@ pip install -r BackendAPI/requirements.txt
 uvicorn src.api.main:app --host 0.0.0.0 --port 3001 --reload
 ```
 
-If `BACKEND_DB_URL` is not set, a local SQLite `dev.db` will be used for quick start only (non-production).
+If `DATABASE_URL` and `BACKEND_DB_URL` are not set, a local SQLite `dev.db` will be used for quick start only (non-production).
+
+Healthcheck and DB connectivity:
+- GET `/` returns `{ message: "Healthy", db: "ok" }` when the API is up and the database connection succeeds, otherwise 503.
+- On application startup, the API will create missing tables automatically if migrations are not used.
 
 ## API Summary
 

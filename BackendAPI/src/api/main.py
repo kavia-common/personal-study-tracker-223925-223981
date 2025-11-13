@@ -21,10 +21,12 @@ APP_DESC = "Backend API providing authentication, study session management, and 
 APP_VERSION = "0.1.0"
 
 # Database config (no secrets hardcoded)
-DB_URL = os.getenv("BACKEND_DB_URL") or os.getenv("DATABASE_URL")
+# Priority: DATABASE_URL -> BACKEND_DB_URL (legacy) -> SQLite dev fallback
+DB_URL = os.getenv("DATABASE_URL") or os.getenv("BACKEND_DB_URL")
 if not DB_URL:
     # Provide a safe default message if missing; do not hardcode secrets
-    # For local dev, users should define BACKEND_DB_URL like: postgresql+psycopg2://user:password@host:port/dbname
+    # For local dev, users should define DATABASE_URL like: postgresql+psycopg2://user:password@host:port/dbname
+    # When running in the multi-container environment, map Database container env to this variable.
     DB_URL = "sqlite:///./dev.db"  # Non-production fallback for quick start if Postgres not configured
 
 # Security/JWT config
@@ -221,15 +223,31 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
 # Routes
 
 # PUBLIC_INTERFACE
-@app.get("/", tags=["Health"], summary="Health Check")
-def health_check():
+@app.get(
+    "/",
+    tags=["Health"],
+    summary="Health Check",
+    description="Health check endpoint that validates application liveness and database connectivity."
+)
+def health_check(db: Session = Depends(get_db)):
     """
-    Health check endpoint to verify service is running.
+    Health check endpoint to verify service is running and database is reachable.
+
+    Parameters:
+        None
 
     Returns:
-        { "message": "Healthy" }
+        JSON object:
+            - message: str - 'Healthy' when app is up.
+            - db: str - 'ok' if database connectivity and simple query succeed, otherwise raises 503.
     """
-    return {"message": "Healthy"}
+    try:
+        # Simple DB connectivity check; uses current session.
+        db.execute(text("SELECT 1"))
+        return {"message": "Healthy", "db": "ok"}
+    except Exception as exc:
+        # Do not leak details; surface generic error
+        raise HTTPException(status_code=503, detail="Database not reachable") from exc
 
 
 # PUBLIC_INTERFACE
@@ -441,5 +459,13 @@ def leaderboard(
     return LeaderboardResponse(all_time=all_time, last_30_days=last_30_days)
 
 
-# Initialize DB on import
+# Initialize DB on import and also at startup to be safe in hot-reload scenarios
 init_db()
+
+@app.on_event("startup")
+def on_startup() -> None:
+    """
+    Ensure database tables exist on application startup.
+    This is a safety net for environments without migrations enabled.
+    """
+    init_db()

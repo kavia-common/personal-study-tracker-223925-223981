@@ -47,6 +47,25 @@ Healthcheck and DB connectivity:
 - GET `/` returns `{ message: "Healthy", db: "ok" }` when the API is up and the database connection succeeds, otherwise 503.
 - On application startup, the API will create missing tables automatically if migrations are not used.
 
+### CORS troubleshooting (BackendAPI)
+The Backend API enables CORS to allow requests from the Web Frontend.
+
+Defaults:
+- Allowed Origin: value of `REACT_APP_FRONTEND_URL` if set, otherwise `http://localhost:3000`
+- Allowed Methods: `GET, POST, PUT, PATCH, DELETE, OPTIONS`
+- Allowed Headers: `Authorization, Content-Type`
+- Credentials: `false` (no cookies). Enable only if you truly need cookie-based auth.
+
+How to change the allowed origin:
+- Set `REACT_APP_FRONTEND_URL` in your `.env` (e.g., `REACT_APP_FRONTEND_URL=http://localhost:3000`).
+
+Common errors:
+- Browser shows "CORS policy" error: Ensure the frontend origin exactly matches the allowed origin including protocol and port.
+- Preflight (OPTIONS) failing: Confirm the method you are using is included in the allowed methods and headers are allowed.
+- 401/403 without CORS error: Likely an auth/header issue rather than CORS.
+
+Note: The health endpoint `/` remains publicly accessible and is unaffected by CORS for same-origin direct calls; CORS applies to browser-based cross-origin requests.
+
 ## API Summary
 
 - GET `/` Health

@@ -100,12 +100,14 @@ app = FastAPI(
 )
 
 # CORS
+# Configure explicit CORS for the WebFrontend (default http://localhost:3000).
+# We intentionally keep allow_credentials=False unless a cookie-based auth flow requires it.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allow_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allow_origins or ["http://localhost:3000"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 

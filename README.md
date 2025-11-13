@@ -48,23 +48,45 @@ Healthcheck and DB connectivity:
 - On application startup, the API will create missing tables automatically if migrations are not used.
 
 ### CORS troubleshooting (BackendAPI)
-The Backend API enables CORS to allow requests from the Web Frontend.
+The Backend API enables CORS to allow requests from the Web Frontend and handle browser preflight robustly.
 
-Defaults:
-- Allowed Origin: value of `REACT_APP_FRONTEND_URL` if set, otherwise `http://localhost:3000`
+Effective configuration:
+- Allowed Origins:
+  - `REACT_APP_FRONTEND_URL` (if set), plus local dev defaults:
+  - `http://localhost:3000`, `http://127.0.0.1:3000`
 - Allowed Methods: `GET, POST, PUT, PATCH, DELETE, OPTIONS`
-- Allowed Headers: `Authorization, Content-Type`
-- Credentials: `false` (no cookies). Enable only if you truly need cookie-based auth.
+- Allowed Headers: `Authorization, Content-Type, X-Requested-With, Accept, Origin`
+- Expose Headers: `Content-Length, Content-Type`
+- Credentials: `false` (no cookies). Set to true only if you implement cookie-based auth.
+
+Preflight handling:
+- Starlette CORSMiddleware auto-handles OPTIONS, and an explicit `OPTIONS /{path:path}` route is provided defensively to always return 200 with CORS headers attached by the middleware.
+
+Startup logging:
+- On app startup, the service prints current CORS settings to stdout:
+  - allow_origins, allow_methods, allow_headers, expose_headers, allow_credentials
+  Use this to verify your environment-based origin is applied.
 
 How to change the allowed origin:
-- Set `REACT_APP_FRONTEND_URL` in your `.env` (e.g., `REACT_APP_FRONTEND_URL=http://localhost:3000`).
+- Set `REACT_APP_FRONTEND_URL` in your `.env`, e.g.:
+  `REACT_APP_FRONTEND_URL=http://localhost:3000`
 
-Common errors:
-- Browser shows "CORS policy" error: Ensure the frontend origin exactly matches the allowed origin including protocol and port.
-- Preflight (OPTIONS) failing: Confirm the method you are using is included in the allowed methods and headers are allowed.
-- 401/403 without CORS error: Likely an auth/header issue rather than CORS.
+Common issues and fixes:
+- Browser "CORS policy" error:
+  - Ensure origin matches exactly (scheme, host, port).
+  - Check console Network tab "Request Headers" and "Response Headers" for `Origin`, `Access-Control-Allow-Origin`, and `Vary: Origin`.
+- Preflight (OPTIONS) failing:
+  - Verify the request method is in Allowed Methods.
+  - If sending custom headers (e.g., `Authorization`), confirm they appear in Allowed Headers.
+- Using credentials (cookies) from frontend:
+  - You must set `allow_credentials=true` in the backend and use a non-wildcard `allow_origins` entry that exactly matches your frontend origin.
+  - Also send `credentials: 'include'` in fetch/axios. This project defaults to `false`.
+- Seeing 401/403 without CORS errors:
+  - This is typically an auth or token issue rather than CORS. Check `Authorization: Bearer <token>` header.
 
-Note: The health endpoint `/` remains publicly accessible and is unaffected by CORS for same-origin direct calls; CORS applies to browser-based cross-origin requests.
+Notes:
+- The health endpoint `/` remains publicly accessible and is unaffected by authentication.
+- CORS applies to browser-based cross-origin requests; non-browser clients (curl, Postman) are not blocked by CORS.
 
 ## API Summary
 

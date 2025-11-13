@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Response
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr, Field, PositiveInt, constr
 from sqlalchemy import create_engine, String, Integer, Date, func, ForeignKey, select, desc, text
@@ -35,8 +36,18 @@ JWT_ALG = os.getenv("BACKEND_JWT_ALG", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("BACKEND_JWT_EXPIRE_MINUTES", "120"))
 
 # CORS configuration - use REACT_APP_FRONTEND_URL if provided
+# We also include common localhost variants to reduce dev friction.
 frontend_origin = os.getenv("REACT_APP_FRONTEND_URL", "http://localhost:3000")
-allow_origins = [frontend_origin]
+allow_origins = list({
+    frontend_origin,
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+})
+# Common CORS allowances for modern SPAs
+allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+allow_headers = ["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"]
+expose_headers = ["Content-Length", "Content-Type"]
+allow_credentials = False  # keep false unless cookie-based flows are required
 
 # SQLAlchemy setup
 engine = create_engine(DB_URL, echo=False, future=True)
@@ -105,9 +116,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins or ["http://localhost:3000"],
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_credentials=allow_credentials,
+    allow_methods=allow_methods,
+    allow_headers=allow_headers,
+    expose_headers=expose_headers,
 )
 
 
@@ -223,6 +235,16 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
 
 
 # Routes
+
+# Explicit OPTIONS handler for preflight (defensive; Starlette CORSMiddleware usually handles this)
+# PUBLIC_INTERFACE
+@app.options("/{path:path}", tags=["Health"], summary="Preflight handler", include_in_schema=False)
+def preflight_handler(path: str) -> Response:
+    """
+    Handle browser CORS preflight requests explicitly. This route simply returns 200 OK.
+    CORSMiddleware will attach the appropriate CORS headers based on configuration.
+    """
+    return Response(status_code=200)
 
 # PUBLIC_INTERFACE
 @app.get(
@@ -469,5 +491,22 @@ def on_startup() -> None:
     """
     Ensure database tables exist on application startup.
     This is a safety net for environments without migrations enabled.
+    Also logs configured CORS settings for troubleshooting.
     """
     init_db()
+    # Log CORS configuration (non-sensitive)
+    try:
+        print(
+            "[Startup] CORS configured:",
+            {
+                "allow_origins": allow_origins,
+                "allow_methods": allow_methods,
+                "allow_headers": allow_headers,
+                "expose_headers": expose_headers,
+                "allow_credentials": allow_credentials,
+            },
+            flush=True,
+        )
+    except Exception:
+        # Avoid failing startup due to logging issues
+        pass

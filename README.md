@@ -27,7 +27,16 @@ Required keys (see BackendAPI/.env.example):
 pip install -r BackendAPI/requirements.txt
 ```
 
-3) Run the API:
+3) Run tests (pytest)
+The test suite uses a separate in-memory SQLite database via dependency overrides and does not use your production DATABASE_URL.
+
+Commands:
+```
+cd BackendAPI
+pytest -q
+```
+
+4) Run the API:
 ```
 uvicorn src.api.main:app --host 0.0.0.0 --port 3001 --reload
 ```
